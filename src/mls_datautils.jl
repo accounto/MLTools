@@ -23,32 +23,65 @@ end
 
 
 function normalize!(df, varnames::Array)
+    mu_vec = Float64[]
+    s_vec = Float64[]
     for varname in varnames
-		normalize!(df, varname)
+	mu, s = normalize!(df, varname)
+        push!(mu_vec, mu)
+        push!(s_vec, s)
     end
+    mu_vec, s_vec
 end
 
 
 function normalize!(df, varname::Symbol)
     mu = mean(df[varname])
     s = std(df[varname])
+    normalize!(df, varname, mu, s)
+    return mu, s
+end
+
+
+function normalize!(df, varname, mu, s)
     df[varname] = (df[varname] .- mu) ./ s
 end
 
 
+function normalize!(df, varnames::Array, mu_vec, s_vec)
+    for (ivar, varname) in enumerate(varnames)
+        mu, s = normalize!(df, varname, mu_vec[ivar], s_vec[ivar])
+    end
+    mu_vec, s_vec
+end
+
 function min_max_norm!(df, varnames::Array)
-	for varname in varnames
-	    min_max_norm!(df, varname)
-	end
+    lower = Float64[]
+    upper = Float64[]
+    for varname in varnames
+        ymin, ymax = extrema(df[varname])
+        dy = ymax - ymin
+        min_max_norm!(df, varname, ymin, ymax)
+        push!(lower, ymin)
+        push!(upper, ymax)
+    end
+    lower, upper
 end
 
 
-function min_max_norm!(df, varname::Symbol)
-    ymin, ymax = extrema(df[varname])
-    dy = ymax - ymin
+function min_max_norm!(df, varname::Symbol, ymin, ymax)
     df[varname] = (df[varname] .- ymin) ./ dy
+    ymin, ymax
 end
 
+
+function min_max_norm!(df, varnames::Array, lower, upper)
+    for (ivar, varname) in enumerate(varnames)
+        ymin, ymax = min_max_norm!(df, varname, lower[ivar], upper[ivar])
+        push!(lower, ymin)
+        push!(upper, ymax)
+    end
+    lower, upper
+end
 
 function train_test_split(X, y, at=0.8)
     nTrain = round(Int, size(X, 1) * 0.8)
